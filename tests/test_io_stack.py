@@ -86,6 +86,30 @@ class ExposureNormalizationTests(unittest.TestCase):
         np.testing.assert_allclose(
             result.R[ok], np.hypot(self.B, self.C)[ok], rtol=0.05)
 
+    def test_relative_manifest_paths_resolve_from_manifest_dir(self):
+        # 清单内使用相对路径时，必须相对清单目录解析，与当前工作目录无关
+        sub = os.path.join(self.tmp, "nested")
+        os.makedirs(sub, exist_ok=True)
+        rel_frames = []
+        for k, deg in enumerate([0, 45, 90, 135]):
+            src = os.path.join(self.tmp, f"f{k}.tif")
+            dst = os.path.join(sub, f"r{k}.tif")
+            os.replace(src, dst)
+            rel_frames.append({"path": f"r{k}.tif", "angle_deg": deg,
+                               "exposure_s": 1.0, "gain": 1.0,
+                               "saturation": 65535})
+        rel_manifest = os.path.join(sub, "manifest.json")
+        with open(rel_manifest, "w") as fh:
+            json.dump({"frames": rel_frames}, fh)
+        cwd = os.getcwd()
+        try:
+            os.chdir(os.path.dirname(self.tmp))  # 离开清单目录
+            stack = load_stack(rel_manifest)
+        finally:
+            os.chdir(cwd)
+        self.assertEqual(stack.intensity.shape, (24, 32, 4))
+        self.assertTrue(np.isfinite(stack.intensity).all())
+
     def test_export_preserves_dimensions(self):
         stack = load_stack(os.path.join(self.tmp, "manifest.json"))
         result = fit_pixels(stack.intensity, stack.angles_rad,

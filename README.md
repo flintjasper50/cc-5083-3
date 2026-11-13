@@ -34,7 +34,14 @@ python -m polanalyzer.gui.app
 
 # 方式三：安装后
 pol-gui
+
+# 无显示服务器时的离屏逻辑自检（人工分析仍需真实显示）
+QT_QPA_PLATFORM=offscreen ./scripts/run_gui.sh
 ```
+
+首次启动需先安装依赖 `python -m pip install numpy matplotlib pillow
+PySide6`；无 root Debian 容器的 Qt 库与中文字体离线准备见
+[`docs/usage.md`](docs/usage.md) 第 7 节。
 
 界面操作：
 
@@ -51,6 +58,22 @@ pol-gui
 
 任何异常在界面底部消息条提示，不静默吞掉。
 
+### 异常诊断与窗口联动
+
+“受控场景”下拉框提供正常、仅角度错配、仅曝光不一致、角度+曝光、
+局部运动五个可复现对照。点击“运行异常诊断”后（后台线程，运行状态条
+可见）：
+
+- 图像恢复窗口用红色散点标出异常像素、黄色包围盒定位异常区域；
+- 分量图新增“诊断假设”行，区分分析角顺序错配、照片曝光不一致、
+  局部场景运动、二者共同存在、证据不足（保留候选）与不可估计；
+- 点击像素时观测曲线标注热点角度，信息栏给出假设、候选解释、设计秩/
+  条件数、证据列表与建议。
+
+诊断只在副本上重拟合，**不自动重排照片、不夹紧负值**；“提取诊断包”
+导出 `manifest.json + data.npz + rebuild.py`，可脱离本界面离线重建
+同一结论。方法细节见 [`docs/methodology.md`](docs/methodology.md) 第 8 节。
+
 ## 命令行（辅助）
 
 ```bash
@@ -62,9 +85,20 @@ python -m polanalyzer.cli fit manifest.json --register --out fit.npz
 
 # 读取导出结果打印状态报告
 python -m polanalyzer.cli report fit.npz
+
+# 受控故障对照（只有角度 / 只有曝光 / 二者联合 / 局部运动），
+# 自动核对诊断结论与注入故障是否一致，可顺带导出诊断包
+python -m polanalyzer.cli fault-demo --bundle-dir examples/bundles
+
+# 对清单运行可复跑诊断并提取自包含诊断包（不修改输入）
+python -m polanalyzer.cli diagnose manifest.json --read-noise 8 \
+    --region 20,40,25,45 --bundle-dir out_bundles
+python3 out_bundles/diagnostic_bundle/rebuild.py   # 离线重建同一结论
 ```
 
-清单 `manifest.json` 格式见 `docs/usage.md`。
+清单 `manifest.json` 格式见 `docs/usage.md`。仓库内置示例（PNG 帧、
+清单与已复算的诊断包）在 `examples/`，由
+`examples/generate_examples.py` 确定性生成。
 
 ## 成像模型与可靠性
 
@@ -78,7 +112,10 @@ python -m unittest discover -s tests
 ```
 
 测试用已知真值的合成观测核对估计参数与预测强度，显式覆盖饱和、运动、
-缺失角度的排除以及弱响应状态，不允许用拟合结果自证。
+缺失角度的排除以及弱响应状态，不允许用拟合结果自证。诊断测试
+（`tests/test_diagnostics.py`）另覆盖四类受控故障的归因对照、输入
+不可变（不重排/不夹紧）、逐点记录与体积封顶、诊断包离线重建及正常
+观测经诊断路径后分量逐元素不变。
 
 ## 环境备注
 

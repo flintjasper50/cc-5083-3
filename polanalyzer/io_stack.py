@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import dataclass
 
 import numpy as np
@@ -45,12 +46,18 @@ class ObservationStack:
 
 
 def load_manifest(manifest_path: str) -> list[FrameSpec]:
+    base_dir = os.path.dirname(os.path.abspath(manifest_path))
     with open(manifest_path, "r", encoding="utf-8") as fh:
         data = json.load(fh)
     frames = []
     for item in data["frames"]:
+        frame_path = item["path"]
+        # 相对路径相对清单所在目录解析，使清单目录可整体移动；
+        # 绝对路径保持原样。
+        if not os.path.isabs(frame_path):
+            frame_path = os.path.normpath(os.path.join(base_dir, frame_path))
         frames.append(FrameSpec(
-            path=item["path"],
+            path=frame_path,
             angle_deg=float(item["angle_deg"]),
             exposure_s=float(item.get("exposure_s", 1.0)),
             gain=float(item.get("gain", 1.0)),
@@ -191,6 +198,8 @@ def export_fit_npz(path: str, result, scene_unit: str) -> None:
         reduced_chi2=result.reduced_chi2,
         max_abs_residual=result.max_abs_residual,
         n_residual_outliers=result.n_residual_outliers,
+        condition_number=result.condition_number,
+        design_rank=result.design_rank,
         n_valid=result.n_valid, state=np.asarray(result.state, dtype=str),
         valid=result.valid, angles_rad=result.angles_rad,
         observed=result.intensity, predicted=result.predicted,

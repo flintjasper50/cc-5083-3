@@ -27,6 +27,30 @@ from .model import derive_components, design_matrix
 MIN_EQUATIONS = 3
 
 
+def solve_wls(X: np.ndarray, y: np.ndarray, w: np.ndarray) -> dict:
+    """单像素加权最小二乘求解，引擎与诊断模块共用同一份数学。
+
+    返回 beta、协方差、条件数、秩、残差与加权残差平方和。
+    条件数基于加权设计矩阵 XtWX 的特征值，诊断记录据此判断求解是否病态。
+    """
+    XtW = X.T * w
+    gram = XtW @ X
+    try:
+        cov = np.linalg.inv(gram)
+    except np.linalg.LinAlgError:
+        return {"ok": False}
+    eig = np.linalg.eigvalsh(gram)
+    eig_pos = eig[eig > 0.0]
+    cond = (float(eig_pos.max() / eig_pos.min())
+            if eig_pos.size == gram.shape[0] else np.inf)
+    beta = cov @ (XtW @ y)
+    resid = y - X @ beta
+    return {
+        "ok": True, "beta": beta, "cov": cov,
+        "condition": cond, "rank": int(np.linalg.matrix_rank(X)),
+        "residual": resid, "w_rss": float(np.sum(w * resid ** 2))}
+
+
 @dataclass
 class FitConfig:
     """拟合配置。
@@ -64,6 +88,8 @@ class FitResult:
     n_valid: np.ndarray
     max_abs_residual: np.ndarray
     n_residual_outliers: np.ndarray
+    condition_number: np.ndarray     # 加权法矩阵 XtWX 的条件数，病态求解的证据
+    design_rank: np.ndarray          # 有效样本上设计矩阵的秩
     state: np.ndarray           # 字符串数组，取值见 masks.ALL_STATES
     valid: np.ndarray           # 布尔，形状 (..., K) 的有效样本遮罩
     motion_mask: np.ndarray | None
@@ -145,6 +171,8 @@ def fit_pixels(intensity: np.ndarray,
     nval = np.zeros(n, dtype=np.int32)
     maxres = np.full(n, np.nan)
     nout = np.zeros(n, dtype=np.int32)
+    conds = np.full(n, np.nan)
+    ranks = np.zeros(n, dtype=np.int32)
     states = np.full(n, STATE_ALL_INVALID, dtype=object)
     pred_flat = np.full((n, k), np.nan)
 
@@ -161,18 +189,18 @@ def fit_pixels(intensity: np.ndarray,
         X = X_full[v]
         y = flat[i, v]
         w = 1.0 / np.maximum(sigma_flat[i, v] ** 2, 1e-12)
-        XtW = X.T * w
-        try:
-            cov = np.linalg.inv(XtW @ X)
-        except np.linalg.LinAlgError:
+        sol = solve_wls(X, y, w)
+        if not sol["ok"]:
             states[i] = STATE_FEW_ANGLES
             nval[i] = 0
             continue
-        beta = cov @ (XtW @ y)
-        a, b, c = beta
-        resid = y - X @ beta
+        cov = sol["cov"]
+        beta = sol["beta"]
+        resid = sol["residual"]
+        conds[i] = sol["condition"]
+        ranks[i] = sol["rank"]
         dof = max(n_valid - 3, 1)
-        w_rss = float(np.sum(w * resid ** 2))
+        w_rss = sol["w_rss"]
         wrss[i] = w_rss
         chi2[i] = w_rss / dof
         rms[i] = float(np.sqrt(np.mean(resid ** 2)))
@@ -180,6 +208,7 @@ def fit_pixels(intensity: np.ndarray,
         nout[i] = int(np.sum(np.abs(resid)
                              > config.max_residual_sigma * sigma_flat[i, v]))
 
+        a, b, c = beta
         A[i], B[i], C[i] = a, b, c
         var = np.diag(cov)
         sA[i] = float(np.sqrt(max(var[0], 0.0)))
@@ -234,6 +263,8 @@ def fit_pixels(intensity: np.ndarray,
         n_valid=unfold(nval.astype(np.float64)),
         max_abs_residual=unfold(maxres),
         n_residual_outliers=unfold(nout.astype(np.float64)),
+        condition_number=unfold(conds),
+        design_rank=unfold(ranks.astype(np.float64)),
         state=unfold(states),
         valid=valid_out,
         motion_mask=(mm if mm is None else np.broadcast_to(mm, intensity.shape)),

@@ -1,0 +1,47 @@
+{
+  "frames": [
+    {
+      "path": "frame_000deg.png",
+      "angle_deg": 0,
+      "exposure_s": 1.0,
+      "gain": 1.0,
+      "saturation": 4095.0
+    },
+    {
+      "path": "frame_030deg.png",
+      "angle_deg": 30,
+      "exposure_s": 1.0,
+      "gain": 1.0,
+      "saturation": 4095.0
+    },
+    {
+      "path": "frame_060deg.png",
+      "angle_deg": 60,
+      "exposure_s": 1.0,
+      "gain": 1.0,
+      "saturation": 4095.0
+    },
+    {
+      "path": "frame_090deg.png",
+      "angle_deg": 90,
+      "exposure_s": 1.0,
+      "gain": 1.0,
+      "saturation": 4095.0
+    },
+    {
+      "path": "frame_120deg.png",
+      "angle_deg": 120,
+      "exposure_s": 1.0,
+      "gain": 1.0,
+      "saturation": 4095.0
+    },
+    {
+      "path": "frame_150deg.png",
+      "angle_deg": 150,
+      "exposure_s": 1.0,
+      "gain": 1.0,
+      "saturation": 4095.0
+    }
+  ],
+  "note": "仅曝光不一致：逐帧增益 (1.0, 1.0, 1.0, 1.6, 1.0, 1.0)（90° 帧增益 1.6，未在清单声明）"
+}

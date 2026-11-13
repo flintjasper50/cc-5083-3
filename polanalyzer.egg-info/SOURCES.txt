@@ -1,8 +1,11 @@
 README.md
 pyproject.toml
 polanalyzer/__init__.py
+polanalyzer/bundle.py
 polanalyzer/cli.py
+polanalyzer/diagnostics.py
 polanalyzer/engine.py
+polanalyzer/faults.py
 polanalyzer/fonts.py
 polanalyzer/io_stack.py
 polanalyzer/masks.py
