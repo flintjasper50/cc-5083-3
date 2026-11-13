@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "polanalyzer"
+version = "0.1.0"
+description = "多角度线性偏振照片的分量拟合、可靠性评估与图像恢复界面"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.24",
+    "matplotlib>=3.7",
+    "pillow>=9.0",
+    "PySide6>=6.5",
+]
+
+[project.scripts]
+pol-gui = "polanalyzer.gui.app:main"
+pol-cli = "polanalyzer.cli:main"
+
+[tool.setuptools]
+packages = ["polanalyzer", "polanalyzer.gui"]

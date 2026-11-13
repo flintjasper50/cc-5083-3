@@ -1,0 +1,3 @@
+[console_scripts]
+pol-cli = polanalyzer.cli:main
+pol-gui = polanalyzer.gui.app:main
